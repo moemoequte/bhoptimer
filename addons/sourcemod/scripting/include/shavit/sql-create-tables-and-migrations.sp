@@ -546,42 +546,108 @@ void ApplyMigration(int migration)
 void ApplyMigration_LastLoginIndex()
 {
 	char sQuery[128];
-	FormatEx(sQuery, 128, "ALTER TABLE `%susers` ADD INDEX `lastlogin` (`lastlogin`);", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 128, "ALTER TABLE `%susers` ADD INDEX `lastlogin` (`lastlogin`);", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 128, "CREATE INDEX lastlogin ON %susers (lastlogin);", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 128, "CREATE INDEX lastlogin ON `%susers` (`lastlogin`);", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_LastLoginIndex, DBPrio_High);
 }
 
 void ApplyMigration_RemoveCountry()
 {
 	char sQuery[128];
-	FormatEx(sQuery, 128, "ALTER TABLE `%susers` DROP COLUMN `country`;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 128, "ALTER TABLE `%susers` DROP COLUMN `country`;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 128, "ALTER TABLE %susers DROP COLUMN country;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 128, "ALTER TABLE `%susers` DROP COLUMN `country`;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_RemoveCountry, DBPrio_High);
 }
 
 void ApplyMigration_PlayertimesDateToInt()
 {
 	char sQuery[128];
-	FormatEx(sQuery, 128, "ALTER TABLE `%splayertimes` CHANGE COLUMN `date` `date` INT;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 128, "ALTER TABLE `%splayertimes` CHANGE COLUMN `date` `date` INT;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 128, "ALTER TABLE %splayertimes ALTER COLUMN date TYPE INT;", gS_SQLPrefix);
+	}
+	else // SQLite - doesn't support ALTER COLUMN type changes
+	{
+		FormatEx(sQuery, 128, "-- SQLite doesn't support ALTER COLUMN type changes");
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_PlayertimesDateToInt, DBPrio_High);
 }
 
 void ApplyMigration_AddZonesFlagsAndData()
 {
 	char sQuery[192];
-	FormatEx(sQuery, 192, "ALTER TABLE `%smapzones` ADD COLUMN `flags` INT NULL AFTER `track`, ADD COLUMN `data` INT NULL AFTER `flags`;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%smapzones` ADD COLUMN `flags` INT NULL AFTER `track`, ADD COLUMN `data` INT NULL AFTER `flags`;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE %smapzones ADD COLUMN flags INT NULL, ADD COLUMN data INT NULL;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%smapzones` ADD COLUMN `flags` INT NULL, ADD COLUMN `data` INT NULL;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_AddZonesFlagsAndData, DBPrio_High);
 }
 
 void ApplyMigration_AddPlayertimesCompletions()
 {
 	char sQuery[192];
-	FormatEx(sQuery, 192, "ALTER TABLE `%splayertimes` ADD COLUMN `completions` SMALLINT DEFAULT 1 AFTER `perfs`;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%splayertimes` ADD COLUMN `completions` SMALLINT DEFAULT 1 AFTER `perfs`;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE %splayertimes ADD COLUMN completions SMALLINT DEFAULT 1;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%splayertimes` ADD COLUMN `completions` SMALLINT DEFAULT 1;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_AddPlayertimesCompletions, DBPrio_High);
 }
 
 void ApplyMigration_AddCustomChatAccess()
 {
 	char sQuery[192];
-	FormatEx(sQuery, 192, "ALTER TABLE `%schat` ADD COLUMN `ccaccess` INT NOT NULL DEFAULT 0 %s;", gS_SQLPrefix, (gI_Driver == Driver_mysql) ? "AFTER `ccmessage`" : "");
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%schat` ADD COLUMN `ccaccess` INT NOT NULL DEFAULT 0 AFTER `ccmessage`;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE %schat ADD COLUMN ccaccess INT NOT NULL DEFAULT 0;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%schat` ADD COLUMN `ccaccess` INT NOT NULL DEFAULT 0;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_AddCustomChatAccess, DBPrio_High);
 }
 
@@ -599,7 +665,18 @@ void ApplyMigration_AddPlayertimesExactTimeInt()
 void ApplyMigration_FixOldCompletionCounts()
 {
 	char sQuery[192];
-	FormatEx(sQuery, 192, "UPDATE `%splayertimes` SET completions = completions - 1 WHERE completions > 1;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 192, "UPDATE `%splayertimes` SET completions = completions - 1 WHERE completions > 1;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 192, "UPDATE %splayertimes SET completions = completions - 1 WHERE completions > 1;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 192, "UPDATE `%splayertimes` SET completions = completions - 1 WHERE completions > 1;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_FixOldCompletionCounts, DBPrio_High);
 }
 
@@ -618,14 +695,36 @@ void ApplyMigration_AddPrebuiltToMapZonesTable()
 void ApplyMigration_AddPlaytime()
 {
 	char sQuery[192];
-	FormatEx(sQuery, 192, "ALTER TABLE `%susers` MODIFY COLUMN `playtime` FLOAT NOT NULL DEFAULT 0;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%susers` MODIFY COLUMN `playtime` FLOAT NOT NULL DEFAULT 0;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE %susers ALTER COLUMN playtime TYPE REAL USING playtime::REAL;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 192, "-- SQLite doesn't support ALTER COLUMN type changes");
+	}
 	QueryLog(gH_SQL, SQL_Migration_AddPlaytime2222222_Callback, sQuery, Migration_AddPlaytime, DBPrio_High);
 }
 
 public void SQL_Migration_AddPlaytime2222222_Callback(Database db, DBResultSet results, const char[] error, any data)
 {
 	char sQuery[192];
-	FormatEx(sQuery, 192, "ALTER TABLE `%susers` ADD COLUMN `playtime` FLOAT NOT NULL DEFAULT 0 %s;", gS_SQLPrefix, (gI_Driver == Driver_mysql) ? "AFTER `points`" : "");
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%susers` ADD COLUMN `playtime` FLOAT NOT NULL DEFAULT 0 AFTER `points`;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE %susers ADD COLUMN playtime REAL NOT NULL DEFAULT 0;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%susers` ADD COLUMN `playtime` REAL NOT NULL DEFAULT 0;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_AddPlaytime, DBPrio_High);
 }
 
@@ -650,7 +749,18 @@ void ApplyMigration_AddPlayertimesPointsCalcedFrom()
 void ApplyMigration_RemovePlayertimesPointsCalcedFrom()
 {
 	char sQuery[192];
-	FormatEx(sQuery, 192, "ALTER TABLE `%splayertimes` DROP COLUMN `points_calced_from`;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%splayertimes` DROP COLUMN `points_calced_from`;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE %splayertimes DROP COLUMN points_calced_from;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 192, "ALTER TABLE `%splayertimes` DROP COLUMN `points_calced_from`;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_RemovePlayertimesPointsCalcedFrom, DBPrio_High);
 }
 
@@ -682,14 +792,36 @@ void ApplyMigration_NormalizeMapzonePoints() // TODO: test with sqlite lol
 void ApplyMigration_AddMapzonesForm()
 {
 	char sQuery[192];
-	FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE `%smapzones` ADD COLUMN `form` TINYINT;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE `%smapzones` ADD COLUMN `form` TINYINT;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE %smapzones ADD COLUMN form SMALLINT;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE `%smapzones` ADD COLUMN `form` TINYINT;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_AddMapzonesForm, DBPrio_High);
 }
 
 void ApplyMigration_AddMapzonesTarget()
 {
 	char sQuery[192];
-	FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE `%smapzones` ADD COLUMN `target` VARCHAR(63);", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE `%smapzones` ADD COLUMN `target` VARCHAR(63);", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE %smapzones ADD COLUMN target VARCHAR(63);", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE `%smapzones` ADD COLUMN `target` VARCHAR(63);", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_AddMapzonesTarget, DBPrio_High);
 }
 
@@ -860,14 +992,36 @@ public void Trans_FixSQLiteMapzonesROWID_Error(Database db, any data, int numQue
 void ApplyMigration_AddUsersFirstLogin()
 {
 	char sQuery[256];
-	FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE %susers ADD `firstlogin` INT NOT NULL DEFAULT -1 %s;", gS_SQLPrefix, (gI_Driver == Driver_mysql) ? "AFTER `lastlogin`" : "");
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE %susers ADD `firstlogin` INT NOT NULL DEFAULT -1 AFTER `lastlogin`;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE %susers ADD firstlogin INT NOT NULL DEFAULT -1;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, sizeof(sQuery), "ALTER TABLE %susers ADD `firstlogin` INT NOT NULL DEFAULT -1;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, ApplyMigration_AddUsersFirstLogin2222222_Callback, sQuery, Migration_AddUsersFirstLogin, DBPrio_High);
 }
 
 public void ApplyMigration_AddUsersFirstLogin2222222_Callback(Database db, DBResultSet results, const char[] error, any data)
 {
 	char sQuery[256];
-	FormatEx(sQuery, sizeof(sQuery), "UPDATE %susers SET firstlogin = lastlogin WHERE lastlogin > 1188518400;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "UPDATE `%susers` SET firstlogin = lastlogin WHERE lastlogin > 1188518400;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "UPDATE %susers SET firstlogin = lastlogin WHERE lastlogin > 1188518400;", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, sizeof(sQuery), "UPDATE `%susers` SET firstlogin = lastlogin WHERE lastlogin > 1188518400;", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_AddUsersFirstLogin, DBPrio_High);
 }
 
@@ -1088,11 +1242,33 @@ void ApplyMigration_ConvertIPAddresses(bool index = true)
 
 	if (index)
 	{
-		FormatEx(sQuery, 128, "ALTER TABLE `%susers` ADD INDEX `ip` (`ip`);", gS_SQLPrefix);
+		if (gI_Driver == Driver_mysql)
+		{
+			FormatEx(sQuery, 128, "ALTER TABLE `%susers` ADD INDEX `ip` (`ip`);", gS_SQLPrefix);
+		}
+		else if (gI_Driver == Driver_pgsql)
+		{
+			FormatEx(sQuery, 128, "CREATE INDEX ip ON %susers (ip);", gS_SQLPrefix);
+		}
+		else // SQLite
+		{
+			FormatEx(sQuery, 128, "CREATE INDEX ip ON `%susers` (`ip`);", gS_SQLPrefix);
+		}
 		QueryLog(gH_SQL, SQL_TableMigrationIndexing_Callback, sQuery, 0, DBPrio_High);
 	}
 
-	FormatEx(sQuery, 128, "SELECT DISTINCT ip FROM %susers WHERE ip LIKE '%%.%%';", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 128, "SELECT DISTINCT ip FROM %susers WHERE ip LIKE '%%.%%';", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 128, "SELECT DISTINCT ip FROM %susers WHERE ip LIKE '%%.%%';", gS_SQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 128, "SELECT DISTINCT ip FROM %susers WHERE ip LIKE '%%.%%';", gS_SQLPrefix);
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationIPAddresses_Callback, sQuery);
 }
 
@@ -1138,10 +1314,32 @@ public void Trans_IPAddressMigrationSuccess(Database db, any data, int numQuerie
 	}
 
 	char sQuery[128];
-	FormatEx(sQuery, 128, "ALTER TABLE `%susers` DROP INDEX `ip`;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 128, "ALTER TABLE `%susers` DROP INDEX `ip`;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 128, "DROP INDEX IF EXISTS ip;");
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, 128, "DROP INDEX IF EXISTS ip;");
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationIndexing_Callback, sQuery, 0, DBPrio_High);
 
-	FormatEx(sQuery, 128, "ALTER TABLE `%susers` CHANGE COLUMN `ip` `ip` INT;", gS_SQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, 128, "ALTER TABLE `%susers` CHANGE COLUMN `ip` `ip` INT;", gS_SQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, 128, "ALTER TABLE %susers ALTER COLUMN ip TYPE INT USING ip::INT;", gS_SQLPrefix);
+	}
+	else // SQLite - doesn't support ALTER COLUMN type changes
+	{
+		FormatEx(sQuery, 128, "-- SQLite doesn't support ALTER COLUMN type changes");
+	}
 	QueryLog(gH_SQL, SQL_TableMigrationSingleQuery_Callback, sQuery, Migration_ConvertIPAddresses, DBPrio_High);
 }
 
