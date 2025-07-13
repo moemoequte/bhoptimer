@@ -409,7 +409,18 @@ public void SQL_FillTierCache_Callback(Database db, DBResultSet results, const c
 		Call_Finish();
 
 		char sQuery[512];
-		FormatEx(sQuery, sizeof(sQuery), "REPLACE INTO %smaptiers (map, tier) VALUES ('%s', %d);", gS_MySQLPrefix, gS_Map, gI_Tier);
+		if (gI_Driver == Driver_mysql)
+		{
+			FormatEx(sQuery, sizeof(sQuery), "REPLACE INTO %smaptiers (map, tier) VALUES ('%s', %d);", gS_MySQLPrefix, gS_Map, gI_Tier);
+		}
+		else if (gI_Driver == Driver_pgsql)
+		{
+			FormatEx(sQuery, sizeof(sQuery), "INSERT INTO %smaptiers (map, tier) VALUES ('%s', %d) ON CONFLICT (map) DO UPDATE SET tier = EXCLUDED.tier;", gS_MySQLPrefix, gS_Map, gI_Tier);
+		}
+		else // SQLite
+		{
+			FormatEx(sQuery, sizeof(sQuery), "INSERT OR REPLACE INTO %smaptiers (map, tier) VALUES ('%s', %d);", gS_MySQLPrefix, gS_Map, gI_Tier);
+		}
 		QueryLog(gH_SQL, SQL_SetMapTier_Callback, sQuery, 0, DBPrio_High);
 	}
 }
@@ -669,7 +680,18 @@ public Action Command_SetTier(int client, int args)
 	Shavit_LogMessage("%L - set tier of `%s` to %d", client, gS_Map, tier);
 
 	char sQuery[512];
-	FormatEx(sQuery, sizeof(sQuery), "REPLACE INTO %smaptiers (map, tier) VALUES ('%s', %d);", gS_MySQLPrefix, map, tier);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "REPLACE INTO %smaptiers (map, tier) VALUES ('%s', %d);", gS_MySQLPrefix, map, tier);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "INSERT INTO %smaptiers (map, tier) VALUES ('%s', %d) ON CONFLICT (map) DO UPDATE SET tier = EXCLUDED.tier;", gS_MySQLPrefix, map, tier);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, sizeof(sQuery), "INSERT OR REPLACE INTO %smaptiers (map, tier) VALUES ('%s', %d);", gS_MySQLPrefix, map, tier);
+	}
 
 	DataPack data = new DataPack();
 	data.WriteCell(client ? GetClientSerial(client) : 0);
@@ -1220,8 +1242,21 @@ void UpdatePlayerRank(int client, bool first)
 		// if there's any issue with this query,
 		// add "ORDER BY points DESC " before "LIMIT 1"
 		char sQuery[512];
-		FormatEx(sQuery, 512, "SELECT u2.points, COUNT(*) FROM %susers u1 JOIN (SELECT points FROM %susers WHERE auth = %d) u2 WHERE u1.points >= u2.points;",
-			gS_MySQLPrefix, gS_MySQLPrefix, iSteamID);
+		if (gI_Driver == Driver_mysql)
+		{
+			FormatEx(sQuery, 512, "SELECT u2.points, COUNT(*) FROM %susers u1 JOIN (SELECT points FROM %susers WHERE auth = %d) u2 WHERE u1.points >= u2.points;",
+				gS_MySQLPrefix, gS_MySQLPrefix, iSteamID);
+		}
+		else if (gI_Driver == Driver_pgsql)
+		{
+			FormatEx(sQuery, 512, "SELECT u2.points, COUNT(*) FROM %susers u1 CROSS JOIN (SELECT points FROM %susers WHERE auth = %d) u2 WHERE u1.points >= u2.points GROUP BY u2.points;",
+				gS_MySQLPrefix, gS_MySQLPrefix, iSteamID);
+		}
+		else // SQLite
+		{
+			FormatEx(sQuery, 512, "SELECT u2.points, COUNT(*) FROM %susers u1 JOIN (SELECT points FROM %susers WHERE auth = %d) u2 WHERE u1.points >= u2.points;",
+				gS_MySQLPrefix, gS_MySQLPrefix, iSteamID);
+		}
 
 		DataPack hPack = new DataPack();
 		hPack.WriteCell(GetClientSerial(client));
@@ -1271,11 +1306,30 @@ public void SQL_UpdatePlayerRank_Callback(Database db, DBResultSet results, cons
 void UpdateTop100()
 {
 	char sQuery[512];
-	FormatEx(sQuery, sizeof(sQuery),
-		"SELECT * FROM (SELECT COUNT(*) as c, 0 as auth, '' as name, '' as p FROM %susers WHERE points > 0) a \
-		UNION ALL \
-		SELECT * FROM (SELECT -1 as c, auth, name, FORMAT(points, 2) FROM %susers WHERE points > 0 ORDER BY points DESC LIMIT 100) b;",
-		gS_MySQLPrefix, gS_MySQLPrefix);
+	if (gI_Driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"SELECT * FROM (SELECT COUNT(*) as c, 0 as auth, '' as name, '' as p FROM %susers WHERE points > 0) a \
+			UNION ALL \
+			SELECT * FROM (SELECT -1 as c, auth, name, FORMAT(points, 2) FROM %susers WHERE points > 0 ORDER BY points DESC LIMIT 100) b;",
+			gS_MySQLPrefix, gS_MySQLPrefix);
+	}
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"SELECT * FROM (SELECT COUNT(*) as c, 0 as auth, '' as name, '' as p FROM %susers WHERE points > 0) a \
+			UNION ALL \
+			SELECT * FROM (SELECT -1 as c, auth, name, ROUND(points::numeric, 2)::text FROM %susers WHERE points > 0 ORDER BY points DESC LIMIT 100) b;",
+			gS_MySQLPrefix, gS_MySQLPrefix);
+	}
+	else // SQLite
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"SELECT * FROM (SELECT COUNT(*) as c, 0 as auth, '' as name, '' as p FROM %susers WHERE points > 0) a \
+			UNION ALL \
+			SELECT * FROM (SELECT -1 as c, auth, name, ROUND(points, 2) FROM %susers WHERE points > 0 ORDER BY points DESC LIMIT 100) b;",
+			gS_MySQLPrefix, gS_MySQLPrefix);
+	}
 
 	QueryLog(gH_SQL, SQL_UpdateTop100_Callback, sQuery, 0, DBPrio_High);
 }
