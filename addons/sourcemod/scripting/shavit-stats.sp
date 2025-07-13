@@ -49,6 +49,7 @@ bool gB_Rankings = false;
 // database handle
 Database gH_SQL = null;
 char gS_MySQLPrefix[32];
+int gI_Driver = Driver_unknown;
 
 // cache
 bool gB_CanOpenMenu[MAXPLAYERS+1];
@@ -187,7 +188,7 @@ void FlushDisconnectPlaytime()
 public void Shavit_OnDatabaseLoaded()
 {
 	GetTimerSQLPrefix(gS_MySQLPrefix, 32);
-	gH_SQL = Shavit_GetDatabase();
+	gH_SQL = Shavit_GetDatabase(gI_Driver);
 
 	for (int i = 1; i <= MaxClients; i++)
 	{
@@ -819,13 +820,39 @@ Action OpenStatsMenu(int client, int steamid, int style = 0, int item = 0)
 	if (gB_Mapchooser && gCV_UseMapchooser.BoolValue)
 	{
 		char sQuery[2048];
-		FormatEx(sQuery, sizeof(sQuery),
-			// Note the `GROUP BY track>0` for now
-			"SELECT 0 as blah, map, track>0 FROM %splayertimes WHERE auth = %d AND style = %d GROUP BY map, track>0 " ...
-			"UNION SELECT 1 as blah, map, track>0 FROM %smapzones WHERE type = 0 GROUP BY map, track>0 " ...
-			"UNION SELECT 2 as blah, map, track FROM %swrs WHERE auth = %d AND style = %d GROUP BY map, track;",
-			gS_MySQLPrefix, steamid, style, gS_MySQLPrefix, gS_MySQLPrefix, steamid, style
-		);
+		
+		if (gI_Driver == Driver_mysql)
+		{
+			// MySQL/SQLite: original query
+			FormatEx(sQuery, sizeof(sQuery),
+				// Note the `GROUP BY track>0` for now
+				"SELECT 0 as blah, map, track>0 FROM %splayertimes WHERE auth = %d AND style = %d GROUP BY map, track>0 " ...
+				"UNION SELECT 1 as blah, map, track>0 FROM %smapzones WHERE type = 0 GROUP BY map, track>0 " ...
+				"UNION SELECT 2 as blah, map, track FROM %swrs WHERE auth = %d AND style = %d GROUP BY map, track;",
+				gS_MySQLPrefix, steamid, style, gS_MySQLPrefix, gS_MySQLPrefix, steamid, style
+			);
+		}
+		else if (gI_Driver == Driver_pgsql)
+		{
+			// PostgreSQL: cast track to boolean to match track>0
+			FormatEx(sQuery, sizeof(sQuery),
+				"SELECT 0 as blah, map, track>0 FROM %splayertimes WHERE auth = %d AND style = %d GROUP BY map, track>0 " ...
+				"UNION SELECT 1 as blah, map, track>0 FROM %smapzones WHERE type = 0 GROUP BY map, track>0 " ...
+				"UNION SELECT 2 as blah, map, track>0 FROM %swrs WHERE auth = %d AND style = %d GROUP BY map, track>0;",
+				gS_MySQLPrefix, steamid, style, gS_MySQLPrefix, gS_MySQLPrefix, steamid, style
+			);
+		}
+		else // SQLite
+		{
+			// SQLite: same as MySQL
+			FormatEx(sQuery, sizeof(sQuery),
+				// Note the `GROUP BY track>0` for now
+				"SELECT 0 as blah, map, track>0 FROM %splayertimes WHERE auth = %d AND style = %d GROUP BY map, track>0 " ...
+				"UNION SELECT 1 as blah, map, track>0 FROM %smapzones WHERE type = 0 GROUP BY map, track>0 " ...
+				"UNION SELECT 2 as blah, map, track FROM %swrs WHERE auth = %d AND style = %d GROUP BY map, track;",
+				gS_MySQLPrefix, steamid, style, gS_MySQLPrefix, gS_MySQLPrefix, steamid, style
+			);
+		}
 
 		QueryLog(gH_SQL, OpenStatsMenu_Mapchooser_Callback, sQuery, data, DBPrio_Low);
 
