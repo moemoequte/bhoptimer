@@ -140,6 +140,12 @@ public void SQL_CreateTables(Database hSQL, const char[] prefix, int driver)
 			"CREATE TABLE IF NOT EXISTS `%susers` (`auth` INT NOT NULL, `name` VARCHAR(32) COLLATE 'utf8mb4_general_ci', `ip` INT, `lastlogin` INT NOT NULL DEFAULT -1, `firstlogin` INT NOT NULL DEFAULT -1, `points` FLOAT NOT NULL DEFAULT 0, `playtime` FLOAT NOT NULL DEFAULT 0, PRIMARY KEY (`auth`), INDEX `points` (`points`), INDEX `lastlogin` (`lastlogin`)) ENGINE=INNODB;",
 			gS_SQLPrefix);
 	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %susers (auth INT NOT NULL PRIMARY KEY, name VARCHAR(32), ip INT, lastlogin INT NOT NULL DEFAULT -1, firstlogin INT NOT NULL DEFAULT -1, points REAL NOT NULL DEFAULT 0, playtime REAL NOT NULL DEFAULT 0);",
+			gS_SQLPrefix);
+	}
 	else
 	{
 		FormatEx(sQuery, sizeof(sQuery),
@@ -149,9 +155,24 @@ public void SQL_CreateTables(Database hSQL, const char[] prefix, int driver)
 
 	AddQueryLog(trans, sQuery);
 
-	FormatEx(sQuery, sizeof(sQuery),
-		"CREATE TABLE IF NOT EXISTS `%smigrations` (`code` TINYINT NOT NULL, PRIMARY KEY (`code`));",
-		gS_SQLPrefix);
+	if (driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%smigrations` (`code` TINYINT NOT NULL, PRIMARY KEY (`code`));",
+			gS_SQLPrefix);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %smigrations (code SMALLINT NOT NULL, PRIMARY KEY (code));",
+			gS_SQLPrefix);
+	}
+	else
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%smigrations` (`code` TINYINT NOT NULL, PRIMARY KEY (`code`));",
+			gS_SQLPrefix);
+	}
 	AddQueryLog(trans, sQuery);
 
 	//
@@ -162,6 +183,12 @@ public void SQL_CreateTables(Database hSQL, const char[] prefix, int driver)
 	{
 		FormatEx(sQuery, sizeof(sQuery),
 			"CREATE TABLE IF NOT EXISTS `%schat` (`auth` INT NOT NULL, `name` INT NOT NULL DEFAULT 0, `ccname` VARCHAR(128) COLLATE 'utf8mb4_unicode_ci', `message` INT NOT NULL DEFAULT 0, `ccmessage` VARCHAR(16) COLLATE 'utf8mb4_unicode_ci', `ccaccess` INT NOT NULL DEFAULT 0, PRIMARY KEY (`auth`), CONSTRAINT `%sch_auth` FOREIGN KEY (`auth`) REFERENCES `%susers` (`auth`) ON UPDATE CASCADE ON DELETE CASCADE) ENGINE=INNODB;",
+			gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %schat (auth INT NOT NULL, name INT NOT NULL DEFAULT 0, ccname VARCHAR(128), message INT NOT NULL DEFAULT 0, ccmessage VARCHAR(16), ccaccess INT NOT NULL DEFAULT 0, PRIMARY KEY (auth), CONSTRAINT %sch_auth FOREIGN KEY (auth) REFERENCES %susers (auth) ON UPDATE CASCADE ON DELETE CASCADE);",
 			gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix);
 	}
 	else
@@ -177,18 +204,48 @@ public void SQL_CreateTables(Database hSQL, const char[] prefix, int driver)
 	//// shavit-rankings
 	//
 
-	FormatEx(sQuery, sizeof(sQuery),
-		"CREATE TABLE IF NOT EXISTS `%smaptiers` (`map` VARCHAR(255) NOT NULL, `tier` INT NOT NULL DEFAULT 1, PRIMARY KEY (`map`)) %s;",
-		gS_SQLPrefix, sOptionalINNODB);
+	if (driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%smaptiers` (`map` VARCHAR(255) NOT NULL, `tier` INT NOT NULL DEFAULT 1, PRIMARY KEY (`map`)) %s;",
+			gS_SQLPrefix, sOptionalINNODB);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %smaptiers (map VARCHAR(255) NOT NULL, tier INT NOT NULL DEFAULT 1, PRIMARY KEY (map));",
+			gS_SQLPrefix);
+	}
+	else
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%smaptiers` (`map` VARCHAR(255) NOT NULL, `tier` INT NOT NULL DEFAULT 1, PRIMARY KEY (`map`)) %s;",
+			gS_SQLPrefix, sOptionalINNODB);
+	}
 	AddQueryLog(trans, sQuery);
 
 	//
 	//// shavit-stats
 	//
 
-	FormatEx(sQuery, sizeof(sQuery),
-		"CREATE TABLE IF NOT EXISTS `%sstyleplaytime` (`auth` INT NOT NULL, `style` TINYINT NOT NULL, `playtime` FLOAT NOT NULL, PRIMARY KEY (`auth`, `style`));",
-		gS_SQLPrefix);
+	if (driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%sstyleplaytime` (`auth` INT NOT NULL, `style` TINYINT NOT NULL, `playtime` FLOAT NOT NULL, PRIMARY KEY (`auth`, `style`));",
+			gS_SQLPrefix);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %sstyleplaytime (auth INT NOT NULL, style SMALLINT NOT NULL, playtime REAL NOT NULL, PRIMARY KEY (auth, style));",
+			gS_SQLPrefix);
+	}
+	else
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%sstyleplaytime` (`auth` INT NOT NULL, `style` TINYINT NOT NULL, `playtime` FLOAT NOT NULL, PRIMARY KEY (`auth`, `style`));",
+			gS_SQLPrefix);
+	}
 	AddQueryLog(trans, sQuery);
 
 	//
@@ -199,6 +256,12 @@ public void SQL_CreateTables(Database hSQL, const char[] prefix, int driver)
 	{
 		FormatEx(sQuery, sizeof(sQuery),
 			"CREATE TABLE IF NOT EXISTS `%splayertimes` (`id` INT NOT NULL AUTO_INCREMENT, `style` TINYINT NOT NULL DEFAULT 0, `track` TINYINT NOT NULL DEFAULT 0, `time` FLOAT NOT NULL, `auth` INT NOT NULL, `map` VARCHAR(255) NOT NULL, `points` FLOAT NOT NULL DEFAULT 0, `jumps` INT, `date` INT, `strafes` INT, `sync` FLOAT, `perfs` FLOAT DEFAULT 0, `completions` SMALLINT DEFAULT 1, PRIMARY KEY (`id`), INDEX `map` (`map`, `style`, `track`, `time`), INDEX `auth` (`auth`, `date`, `points`), INDEX `time` (`time`), INDEX `map2` (`map`), CONSTRAINT `%spt_auth` FOREIGN KEY (`auth`) REFERENCES `%susers` (`auth`) ON UPDATE RESTRICT ON DELETE RESTRICT) ENGINE=INNODB;",
+			gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %splayertimes (id SERIAL PRIMARY KEY, style SMALLINT NOT NULL DEFAULT 0, track SMALLINT NOT NULL DEFAULT 0, time REAL NOT NULL, auth INT NOT NULL, map VARCHAR(255) NOT NULL, points REAL NOT NULL DEFAULT 0, jumps INT, date INT, strafes INT, sync REAL, perfs REAL DEFAULT 0, completions SMALLINT DEFAULT 1, CONSTRAINT %spt_auth FOREIGN KEY (auth) REFERENCES %susers (auth) ON UPDATE RESTRICT ON DELETE RESTRICT);",
 			gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix);
 	}
 	else
@@ -212,14 +275,44 @@ public void SQL_CreateTables(Database hSQL, const char[] prefix, int driver)
 
 	AddQueryLog(trans, sQuery);
 
-	FormatEx(sQuery, sizeof(sQuery),
-		"CREATE TABLE IF NOT EXISTS `%sstagetimeswr` (`style` TINYINT NOT NULL, `track` TINYINT NOT NULL DEFAULT 0, `map` VARCHAR(255) NOT NULL, `stage` TINYINT NOT NULL, `auth` INT NOT NULL, `time` FLOAT NOT NULL, PRIMARY KEY (`style`, `track`, `map`, `stage`)) %s;",
-		gS_SQLPrefix, sOptionalINNODB);
+	if (driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%sstagetimeswr` (`style` TINYINT NOT NULL, `track` TINYINT NOT NULL DEFAULT 0, `map` VARCHAR(255) NOT NULL, `stage` TINYINT NOT NULL, `auth` INT NOT NULL, `time` FLOAT NOT NULL, PRIMARY KEY (`style`, `track`, `map`, `stage`)) %s;",
+			gS_SQLPrefix, sOptionalINNODB);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %sstagetimeswr (style SMALLINT NOT NULL, track SMALLINT NOT NULL DEFAULT 0, map VARCHAR(255) NOT NULL, stage SMALLINT NOT NULL, auth INT NOT NULL, time REAL NOT NULL, PRIMARY KEY (style, track, map, stage));",
+			gS_SQLPrefix);
+	}
+	else
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%sstagetimeswr` (`style` TINYINT NOT NULL, `track` TINYINT NOT NULL DEFAULT 0, `map` VARCHAR(255) NOT NULL, `stage` TINYINT NOT NULL, `auth` INT NOT NULL, `time` FLOAT NOT NULL, PRIMARY KEY (`style`, `track`, `map`, `stage`)) %s;",
+			gS_SQLPrefix, sOptionalINNODB);
+	}
 	AddQueryLog(trans, sQuery);
 
-	FormatEx(sQuery, sizeof(sQuery),
-		"CREATE TABLE IF NOT EXISTS `%sstagetimespb` (`style` TINYINT NOT NULL, `track` TINYINT NOT NULL DEFAULT 0, `map` VARCHAR(255) NOT NULL, `stage` TINYINT NOT NULL, `auth` INT NOT NULL, `time` FLOAT NOT NULL, PRIMARY KEY (`style`, `track`, `auth`, `map`, `stage`)) %s;",
-		gS_SQLPrefix, sOptionalINNODB);
+	if (driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%sstagetimespb` (`style` TINYINT NOT NULL, `track` TINYINT NOT NULL DEFAULT 0, `map` VARCHAR(255) NOT NULL, `stage` TINYINT NOT NULL, `auth` INT NOT NULL, `time` FLOAT NOT NULL, PRIMARY KEY (`style`, `track`, `auth`, `map`, `stage`)) %s;",
+			gS_SQLPrefix, sOptionalINNODB);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %sstagetimespb (style SMALLINT NOT NULL, track SMALLINT NOT NULL DEFAULT 0, map VARCHAR(255) NOT NULL, stage SMALLINT NOT NULL, auth INT NOT NULL, time REAL NOT NULL, PRIMARY KEY (style, track, auth, map, stage));",
+			gS_SQLPrefix);
+	}
+	else
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%sstagetimespb` (`style` TINYINT NOT NULL, `track` TINYINT NOT NULL DEFAULT 0, `map` VARCHAR(255) NOT NULL, `stage` TINYINT NOT NULL, `auth` INT NOT NULL, `time` FLOAT NOT NULL, PRIMARY KEY (`style`, `track`, `auth`, `map`, `stage`)) %s;",
+			gS_SQLPrefix, sOptionalINNODB);
+	}
 	AddQueryLog(trans, sQuery);
 
 	if (driver == Driver_sqlite)
@@ -230,16 +323,44 @@ public void SQL_CreateTables(Database hSQL, const char[] prefix, int driver)
 		AddQueryLog(trans, sQuery);
 	}
 
-	FormatEx(sQuery, sizeof(sQuery),
-		"%s %swrs_min AS SELECT MIN(time) time, map, track, style FROM %splayertimes GROUP BY map, track, style;",
-		driver == Driver_sqlite ? "CREATE VIEW IF NOT EXISTS" : "CREATE OR REPLACE VIEW",
-		gS_SQLPrefix, gS_SQLPrefix);
+	if (driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE OR REPLACE VIEW %swrs_min AS SELECT MIN(time) time, map, track, style FROM %splayertimes GROUP BY map, track, style;",
+			gS_SQLPrefix, gS_SQLPrefix);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE OR REPLACE VIEW %swrs_min AS SELECT MIN(time) time, map, track, style FROM %splayertimes GROUP BY map, track, style;",
+			gS_SQLPrefix, gS_SQLPrefix);
+	}
+	else
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE VIEW IF NOT EXISTS %swrs_min AS SELECT MIN(time) time, map, track, style FROM %splayertimes GROUP BY map, track, style;",
+			gS_SQLPrefix, gS_SQLPrefix);
+	}
 	AddQueryLog(trans, sQuery);
 
-	FormatEx(sQuery, sizeof(sQuery),
-		"%s %swrs AS SELECT a.* FROM %splayertimes a JOIN %swrs_min b ON a.time = b.time AND a.map = b.map AND a.track = b.track AND a.style = b.style;",
-		driver == Driver_sqlite ? "CREATE VIEW IF NOT EXISTS" : "CREATE OR REPLACE VIEW",
-		gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix);
+	if (driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE OR REPLACE VIEW %swrs AS SELECT a.* FROM %splayertimes a JOIN %swrs_min b ON a.time = b.time AND a.map = b.map AND a.track = b.track AND a.style = b.style;",
+			gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE OR REPLACE VIEW %swrs AS SELECT a.* FROM %splayertimes a JOIN %swrs_min b ON a.time = b.time AND a.map = b.map AND a.track = b.track AND a.style = b.style;",
+			gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix);
+	}
+	else
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE VIEW IF NOT EXISTS %swrs AS SELECT a.* FROM %splayertimes a JOIN %swrs_min b ON a.time = b.time AND a.map = b.map AND a.track = b.track AND a.style = b.style;",
+			gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix);
+	}
 	AddQueryLog(trans, sQuery);
 
 	//
@@ -253,6 +374,13 @@ public void SQL_CreateTables(Database hSQL, const char[] prefix, int driver)
 			gS_SQLPrefix, sOptionalINNODB);
 		AddQueryLog(trans, sQuery);
 	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %smapzones (id SERIAL PRIMARY KEY, map VARCHAR(255) NOT NULL, type INT, corner1_x REAL, corner1_y REAL, corner1_z REAL, corner2_x REAL, corner2_y REAL, corner2_z REAL, destination_x REAL NOT NULL DEFAULT 0, destination_y REAL NOT NULL DEFAULT 0, destination_z REAL NOT NULL DEFAULT 0, track INT NOT NULL DEFAULT 0, flags INT NOT NULL DEFAULT 0, data INT NOT NULL DEFAULT 0, form SMALLINT, target VARCHAR(63));",
+			gS_SQLPrefix);
+		AddQueryLog(trans, sQuery);
+	}
 	else
 	{
 		FormatEx(sQuery, sizeof(sQuery),
@@ -262,10 +390,47 @@ public void SQL_CreateTables(Database hSQL, const char[] prefix, int driver)
 		strcopy(SQLiteMapzonesQuery, sizeof(SQLiteMapzonesQuery), sQuery);
 	}
 
-	FormatEx(sQuery, sizeof(sQuery),
-		"CREATE TABLE IF NOT EXISTS `%sstartpositions` (`auth` INTEGER NOT NULL, `track` TINYINT NOT NULL, `map` VARCHAR(255) NOT NULL, `pos_x` FLOAT, `pos_y` FLOAT, `pos_z` FLOAT, `ang_x` FLOAT, `ang_y` FLOAT, `ang_z` FLOAT, `angles_only` BOOL, PRIMARY KEY (`auth`, `track`, `map`)) %s;",
-		gS_SQLPrefix, sOptionalINNODB);
+	if (driver == Driver_mysql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%sstartpositions` (`auth` INTEGER NOT NULL, `track` TINYINT NOT NULL, `map` VARCHAR(255) NOT NULL, `pos_x` FLOAT, `pos_y` FLOAT, `pos_z` FLOAT, `ang_x` FLOAT, `ang_y` FLOAT, `ang_z` FLOAT, `angles_only` BOOL, PRIMARY KEY (`auth`, `track`, `map`)) %s;",
+			gS_SQLPrefix, sOptionalINNODB);
+	}
+	else if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS %sstartpositions (auth INTEGER NOT NULL, track SMALLINT NOT NULL, map VARCHAR(255) NOT NULL, pos_x REAL, pos_y REAL, pos_z REAL, ang_x REAL, ang_y REAL, ang_z REAL, angles_only BOOLEAN, PRIMARY KEY (auth, track, map));",
+			gS_SQLPrefix);
+	}
+	else
+	{
+		FormatEx(sQuery, sizeof(sQuery),
+			"CREATE TABLE IF NOT EXISTS `%sstartpositions` (`auth` INTEGER NOT NULL, `track` TINYINT NOT NULL, `map` VARCHAR(255) NOT NULL, `pos_x` FLOAT, `pos_y` FLOAT, `pos_z` FLOAT, `ang_x` FLOAT, `ang_y` FLOAT, `ang_z` FLOAT, `angles_only` BOOL, PRIMARY KEY (`auth`, `track`, `map`)) %s;",
+			gS_SQLPrefix, sOptionalINNODB);
+	}
 	AddQueryLog(trans, sQuery);
+
+	// PostgreSQL indexes need to be created separately
+	if (driver == Driver_pgsql)
+	{
+		FormatEx(sQuery, sizeof(sQuery), "CREATE INDEX IF NOT EXISTS %susers_points_idx ON %susers (points);", gS_SQLPrefix, gS_SQLPrefix);
+		AddQueryLog(trans, sQuery);
+		
+		FormatEx(sQuery, sizeof(sQuery), "CREATE INDEX IF NOT EXISTS %susers_lastlogin_idx ON %susers (lastlogin);", gS_SQLPrefix, gS_SQLPrefix);
+		AddQueryLog(trans, sQuery);
+		
+		FormatEx(sQuery, sizeof(sQuery), "CREATE INDEX IF NOT EXISTS %splayertimes_map_idx ON %splayertimes (map, style, track, time);", gS_SQLPrefix, gS_SQLPrefix);
+		AddQueryLog(trans, sQuery);
+		
+		FormatEx(sQuery, sizeof(sQuery), "CREATE INDEX IF NOT EXISTS %splayertimes_auth_idx ON %splayertimes (auth, date, points);", gS_SQLPrefix, gS_SQLPrefix);
+		AddQueryLog(trans, sQuery);
+		
+		FormatEx(sQuery, sizeof(sQuery), "CREATE INDEX IF NOT EXISTS %splayertimes_time_idx ON %splayertimes (time);", gS_SQLPrefix, gS_SQLPrefix);
+		AddQueryLog(trans, sQuery);
+		
+		FormatEx(sQuery, sizeof(sQuery), "CREATE INDEX IF NOT EXISTS %splayertimes_map2_idx ON %splayertimes (map);", gS_SQLPrefix, gS_SQLPrefix);
+		AddQueryLog(trans, sQuery);
+	}
 
 	hSQL.Execute(trans, Trans_CreateTables_Success, Trans_CreateTables_Error, 0, DBPrio_High);
 }
