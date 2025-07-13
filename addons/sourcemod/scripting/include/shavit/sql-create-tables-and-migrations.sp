@@ -1057,7 +1057,34 @@ public void ApplyMigration_MoreFirstLoginStuff()
 		);
 		AddQueryLog(trans, query);
 	}
-	else // sqlite & postgresql use the same syntax here
+	else if (gI_Driver == Driver_pgsql)
+	{
+		FormatEx(query, sizeof(query),
+			"UPDATE %susers SET firstlogin = pt.min_date::INT \
+			FROM ( \
+				SELECT auth, MIN(FLOOR(date - time))::INT as min_date \
+				FROM %splayertimes \
+				WHERE date > 1188518400 \
+				GROUP BY auth \
+			) as pt \
+			WHERE %susers.auth = pt.auth AND firstlogin <= 0;",
+			gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix
+		);
+		AddQueryLog(trans, query);
+		FormatEx(query, sizeof(query),
+			"UPDATE %susers SET firstlogin = LEAST(firstlogin, pt.min_date::INT) \
+			FROM ( \
+				SELECT auth, MIN(FLOOR(date - time))::INT as min_date \
+				FROM %splayertimes \
+				WHERE date > 1188518400 \
+				GROUP BY auth \
+			) as pt \
+			WHERE %susers.auth = pt.auth AND firstlogin > 0;",
+			gS_SQLPrefix, gS_SQLPrefix, gS_SQLPrefix
+		);
+		AddQueryLog(trans, query);
+	}
+	else // sqlite
 	{
 		FormatEx(query, sizeof(query),
 			"UPDATE %susers SET firstlogin = pt.min_date \
