@@ -810,7 +810,7 @@ void FormatRecalculate(bool bUseCurrentMap, int track, int style, char[] sQuery,
 				gS_Map
 			);
 		}
-		else
+		else if (gI_Driver == Driver_mysql)
 		{
 			FormatEx(sQuery, sQueryLen,
 				"UPDATE %splayertimes AS PT " ...
@@ -825,6 +825,27 @@ void FormatRecalculate(bool bUseCurrentMap, int track, int style, char[] sQuery,
 				gS_MySQLPrefix, gS_MySQLPrefix,
 				((gCV_PointsPerTier.FloatValue * fTier) * 1.5),
 				fMultiplier,
+				(track > 0) ? '>' : '=',
+				style,
+				gS_Map
+			);
+		}
+		else // PostgreSQL
+		{
+			FormatEx(sQuery, sQueryLen,
+				"UPDATE %splayertimes AS PT " ...
+				"SET " ...
+				" points = "...
+				"   (%f + (WR.time / 15.0)) " ...
+				" * (WR.time / PT.time) " ...
+				" * %f " ...
+				"FROM %swrs WR " ...
+				"WHERE PT.track = WR.track AND PT.style = WR.style AND PT.map = WR.map " ...
+				"  AND PT.track %c 0 AND PT.style = %d AND PT.map = '%s';",
+				gS_MySQLPrefix,
+				((gCV_PointsPerTier.FloatValue * fTier) * 1.5),
+				fMultiplier,
+				gS_MySQLPrefix,
 				(track > 0) ? '>' : '=',
 				style,
 				gS_Map
@@ -857,7 +878,7 @@ void FormatRecalculate(bool bUseCurrentMap, int track, int style, char[] sQuery,
 			mapfilter
 		);
 	}
-	else
+	else if (gI_Driver == Driver_mysql)
 	{
 		char mapfilter[50+PLATFORM_MAX_PATH];
 		if (map[0]) FormatEx(mapfilter, sizeof(mapfilter), "AND PT.map = '%s'", map);
@@ -882,6 +903,32 @@ void FormatRecalculate(bool bUseCurrentMap, int track, int style, char[] sQuery,
 			gCV_PointsPerTier.FloatValue,
 			(track > 0) ? "1" : "MT.tier",
 			fMultiplier
+		);
+	}
+	else // PostgreSQL
+	{
+		char mapfilter[50+PLATFORM_MAX_PATH];
+		if (map[0]) FormatEx(mapfilter, sizeof(mapfilter), "AND PT.map = '%s'", map);
+
+		FormatEx(sQuery, sQueryLen,
+			"UPDATE %splayertimes AS PT " ...
+			"SET " ...
+			" points = "...
+			"   (((%f * %s) * 1.5) + (WR.time / 15.0)) " ...
+			" * (WR.time / PT.time) " ...
+			" * %f " ...
+			"FROM %swrs AS WR, %smaptiers AS MT " ...
+			"WHERE PT.track %c 0 AND PT.track = WR.track AND PT.style = %d AND PT.style = WR.style %s AND PT.map = WR.map " ...
+			"  AND PT.map = MT.map;",
+			gS_MySQLPrefix,
+			gCV_PointsPerTier.FloatValue,
+			(track > 0) ? "1" : "MT.tier",
+			fMultiplier,
+			gS_MySQLPrefix,
+			gS_MySQLPrefix,
+			(track > 0) ? '>' : '=',
+			style,
+			mapfilter
 		);
 	}
 }
