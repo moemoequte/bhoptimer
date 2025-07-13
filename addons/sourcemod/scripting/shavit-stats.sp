@@ -426,9 +426,18 @@ void SavePlaytime222(int client, float now, Transaction&trans, int style, int iS
 			return;
 		}
 
-		FormatEx(sQuery, sizeof(sQuery),
-			"UPDATE `%susers` SET playtime = playtime + %f WHERE auth = %d;",
-			gS_MySQLPrefix, diff, iSteamID);
+		if (gI_Driver == Driver_mysql)
+		{
+			FormatEx(sQuery, sizeof(sQuery),
+				"UPDATE `%susers` SET playtime = playtime + %f WHERE auth = %d;",
+				gS_MySQLPrefix, diff, iSteamID);
+		}
+		else // PostgreSQL/SQLite
+		{
+			FormatEx(sQuery, sizeof(sQuery),
+				"UPDATE %susers SET playtime = playtime + %f WHERE auth = %d;",
+				gS_MySQLPrefix, diff, iSteamID);
+		}
 	}
 	else
 	{
@@ -449,16 +458,34 @@ void SavePlaytime222(int client, float now, Transaction&trans, int style, int iS
 
 		if (gB_HavePlaytimeOnStyle[client][style])
 		{
-			FormatEx(sQuery, sizeof(sQuery),
-				"UPDATE `%sstyleplaytime` SET playtime = playtime + %f WHERE auth = %d AND style = %d;",
-				gS_MySQLPrefix, diff, iSteamID, style);
+			if (gI_Driver == Driver_mysql)
+			{
+				FormatEx(sQuery, sizeof(sQuery),
+					"UPDATE `%sstyleplaytime` SET playtime = playtime + %f WHERE auth = %d AND style = %d;",
+					gS_MySQLPrefix, diff, iSteamID, style);
+			}
+			else // PostgreSQL/SQLite
+			{
+				FormatEx(sQuery, sizeof(sQuery),
+					"UPDATE %sstyleplaytime SET playtime = playtime + %f WHERE auth = %d AND style = %d;",
+					gS_MySQLPrefix, diff, iSteamID, style);
+			}
 		}
 		else
 		{
 			gB_HavePlaytimeOnStyle[client][style] = true;
-			FormatEx(sQuery, sizeof(sQuery),
-				"INSERT INTO `%sstyleplaytime` (`auth`, `style`, `playtime`) VALUES (%d, %d, %f);",
-				gS_MySQLPrefix, iSteamID, style, diff);
+			if (gI_Driver == Driver_mysql)
+			{
+				FormatEx(sQuery, sizeof(sQuery),
+					"INSERT INTO `%sstyleplaytime` (`auth`, `style`, `playtime`) VALUES (%d, %d, %f);",
+					gS_MySQLPrefix, iSteamID, style, diff);
+			}
+			else // PostgreSQL/SQLite
+			{
+				FormatEx(sQuery, sizeof(sQuery),
+					"INSERT INTO %sstyleplaytime (auth, style, playtime) VALUES (%d, %d, %f);",
+					gS_MySQLPrefix, iSteamID, style, diff);
+			}
 		}
 	}
 
